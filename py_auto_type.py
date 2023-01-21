@@ -3,7 +3,7 @@ import threading, _thread
 from pynput.keyboard import Key, Controller, Listener, HotKey
 
 # Complete path to the code
-file_path = "/home/abhishek/Programs/AI/lab02/toh.py"
+file_path = "/home/abhishek/Programs/AI/lab02/two-jug.py"
 
 # "\t" if indented using tab
 indent_string = "    "
@@ -18,6 +18,7 @@ key_delay = 0.01
 # Kill Switch
 switch = '<alt>+c'
 
+# TODO : fix indentation when 'break', 'continue' or 'return' keywords
 
 def type_code():
     keyboard = Controller()
