@@ -23,8 +23,6 @@ def type_code():
     keyboard = Controller()
     with open(file_path, "r") as f:
         codelines = f.readlines()
-
-        # code = code.replace(":\n", ":\n\b")
         indent_count = 0
         for code in codelines:
             curr_indent = code.count(indent_string)
@@ -32,6 +30,12 @@ def type_code():
                 for _ in range(indent_count - curr_indent):
                     keyboard.press(Key.backspace)
                     keyboard.release(Key.backspace)
+                    time.sleep(key_delay)
+                indent_count = curr_indent
+            elif curr_indent > indent_count:
+                for _ in range(curr_indent - indent_count):
+                    keyboard.press(Key.tab)
+                    keyboard.release(Key.tab)
                     time.sleep(key_delay)
                 indent_count = curr_indent
             
@@ -44,6 +48,8 @@ def type_code():
                 indent_count += 1
 
         time.sleep(0.5)
+        keyboard.press(Key.home)
+        keyboard.release(Key.home)
         keyboard.press(Key.shift)
         keyboard.press(Key.end)
         keyboard.release(Key.end)
@@ -69,6 +75,6 @@ def kill_switch():
 
 
 if __name__ == "__main__":
-    threading.Thread(target=kill_switch).start()
+    threading.Thread(target=kill_switch, daemon=True).start()
     time.sleep(initial_delay)
     type_code()
