@@ -3,7 +3,7 @@ import threading, _thread
 from pynput.keyboard import Key, Controller, Listener, HotKey
 
 # Complete path to the code
-file_path = "/home/abhishek/Programs/AI/lab02/two-jug.py"
+file_path = "/home/abhishek/Programs/AI/lab03/tsp-search.py"
 
 # "\t" if indented using tab
 indent_string = "    "
@@ -49,6 +49,9 @@ def type_code():
                 indent_count += 1
 
         time.sleep(0.5)
+        if codelines[-1] != "\n":
+            keyboard.press(Key.enter)
+            keyboard.release(Key.enter)
         keyboard.press(Key.home)
         keyboard.release(Key.home)
         keyboard.press(Key.shift)
