@@ -33,7 +33,23 @@ def game_over(board):
     if 0 not in board:
         return -1
 
+    # Game is not over
     return 0
+
+
+def make_move(board, player):
+    if player == 1:
+        pos = int(input('Enter position (1-9): '))
+        if pos < 1 or pos > 9:
+            raise ValueError('Illegal move!')
+        row = (pos-1) // 3
+        col = (pos-1) % 3
+        if board[row][col] != 0:
+            raise ValueError('Illegal move!')
+        board[row][col] = 1
+    else:
+        value, row, col = ab_minimax(board, 0, -INF, INF, True)
+        board[row][col] = 2
 
 
 def ab_minimax(board, depth, alpha, beta, maximizing_player):
@@ -77,24 +93,18 @@ def ab_minimax(board, depth, alpha, beta, maximizing_player):
 
 
 board = np.zeros((3, 3))
-while True:
+player = 1
+while not game_over(board):
     print_board(board)
-    if game_over(board) != 0:
-        break
-    pos = int(input('Enter position (1-9): '))
-    if pos < 1 or pos > 9:
-        print('Invalid position!')
-        continue
-    row = (pos-1) // 3
-    col = (pos-1) % 3
-    board[row][col] = 1
-    if game_over(board) != 0:
-        break
-    value, row, col = ab_minimax(board, 0, -INF, INF, True)
-    board[row][col] = 2
+    try:
+        make_move(board, player)
+        player = 3 - player
+    except ValueError as e:
+        print(e)
+
 
 print('Game over!')
-
+print_board(board)
 result = game_over(board)
 if result == 1:
     print('You won!')
