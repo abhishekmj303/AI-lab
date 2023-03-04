@@ -3,7 +3,7 @@ import threading, _thread
 from pynput.keyboard import Key, Controller, Listener, HotKey
 
 # Complete path to the code
-file_path = "/home/abhishek/Programs/AI/lab03/tsp-search.py"
+file_path = "/home/abhishek/Programs/AI/lab06/ttt-pruning.py"
 
 # "\t" if indented using tab
 indent_string = "    "
@@ -18,7 +18,6 @@ key_delay = 0.01
 # Kill Switch
 switch = '<alt>+c'
 
-# TODO : fix indentation when 'break', 'continue' or 'return' keywords
 
 def type_code():
     keyboard = Controller()
@@ -47,6 +46,9 @@ def type_code():
 
             if code[-2:] in [":\n", "[\n", "(\n", "{\n"]:
                 indent_count += 1
+            code_words = code.split()
+            if len(code_words) > 0 and code_words[-1] in ["break", "continue"]:
+                indent_count -= 1
 
         time.sleep(0.5)
         if codelines[-1] != "\n":
