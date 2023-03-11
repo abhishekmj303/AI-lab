@@ -2,6 +2,11 @@ import time
 import threading, _thread
 from pynput.keyboard import Key, Controller, Listener, HotKey
 
+# TODO: Only type the difference in the code
+# - Copy code in moodle to a file
+# - Use any diff tool
+# - Use line numbers to type to only in those lines
+
 # Complete path to the code
 file_path = "/home/abhishek/Programs/AI/lab06/ttt-pruning.py"
 
@@ -12,7 +17,7 @@ indent_string = "    "
 initial_delay = 5
 
 # Delay between each letter while typing in seconds
-key_delay = 0.01
+key_delay = 0.1
 
 # Note: Kill the program from typing the code by pressing <alt>+c
 # Kill Switch
