@@ -1,198 +1,204 @@
 import numpy as np
-
-
-class Block:
-    def __init__(self, env):
-        self.pit = 0
-        self.wumpus = 0
-        self.gold = 0
-        self.breeze = 0
-        self.stench = 0
-        self.visited = 0
-        self.ok = 0
-        if env == 'PIT':
-            self.pit = 1
-        elif env == 'WUMPUS':
-            self.wumpus = 1
-        elif env == 'GOLD':
-            self.gold = 1
-
-    def __str__(self):
-        env, state = "", ""
-        if self.pit: env += "P"
-        if self.wumpus: env += "W"
-        if self.gold: env += "G"
-        if self.breeze: env += "B"
-        if self.stench: env += "S"
-
-        state = "V" if self.visited else " "
-        ok_str = {0: "  ", 1: " ✓", -1: "?P", -2: "?W", -3: "??"}
-        state += ok_str[self.ok]
-
-        return f"{env.center(3)}\n{state}"
-
-
-class WumpusWorld(tuple):
-    def __new__(cls, world):
-        return super().__new__(cls, world)
-
-    def __init__(self, world):
-        self[0][0].visited = 1
-        self[0][0].ok = 1
-        n = len(world)
-        for i in range(n):
-            for j in range(n):
-                if self[i][j].pit:
-                    if 0 <= i-1 and not self[i-1][j].pit and not self[i-1][j].wumpus:
-                        self[i - 1][j].breeze = 1
-                    if 0 <= j-1 and not self[i][j-1].pit and not self[i][j-1].wumpus:
-                        self[i][j - 1].breeze = 1
-                    if i+1 < n and not self[i+1][j].pit and not self[i+1][j].wumpus:
-                        self[i + 1][j].breeze = 1
-                    if j+1 < n and not self[i][j+1].pit and not self[i][j+1].wumpus:
-                        self[i][j + 1].breeze = 1
-                if self[i][j].wumpus:
-                    if 0 <= i-1 and not self[i-1][j].pit and not self[i-1][j].wumpus:
-                        self[i - 1][j].stench = 1
-                    if 0 <= j-1 and not self[i][j-1].pit and not self[i][j-1].wumpus:
-                        self[i][j - 1].stench = 1
-                    if i+1 < n and not self[i+1][j].pit and not self[i+1][j].wumpus:
-                        self[i + 1][j].stench = 1
-                    if j+1 < n and not self[i][j+1].pit and not self[i][j+1].wumpus:
-                        self[i][j + 1].stench = 1
-
-        def get(self, pos):
-            return self[pos[0]][pos[1]]
+from collections import defaultdict
 
 
 class Agent:
     LEFT = {'NORTH': 'WEST', 'WEST': 'SOUTH', 'SOUTH': 'EAST', 'EAST': 'NORTH'}
     RIGHT = {'NORTH': 'EAST', 'EAST': 'SOUTH', 'SOUTH': 'WEST', 'WEST': 'NORTH'}
-    FORWARD = {'NORTH': (1, 0), 'EAST': (0, 1), 'SOUTH': (-1, 0), 'WEST': (0, -1)}
+    FORWARD = {'NORTH': (0, 1), 'EAST': (1, 0), 'SOUTH': (0, -1), 'WEST': (-1, 0)}
+    TURNS = {('NORTH', 'NORTH'): [], ('NORTH', 'EAST'): ['RIGHT'], ('NORTH', 'SOUTH'): ['RIGHT', 'RIGHT'],
+             ('NORTH', 'WEST'): ['LEFT'], ('EAST', 'NORTH'): ['LEFT'], ('EAST', 'EAST'): [],
+             ('EAST', 'SOUTH'): ['RIGHT'], ('EAST', 'WEST'): ['RIGHT', 'RIGHT'], ('SOUTH', 'NORTH'): ['RIGHT', 'RIGHT'],
+             ('SOUTH', 'EAST'): ['LEFT'], ('SOUTH', 'SOUTH'): [], ('SOUTH', 'WEST'): ['RIGHT'],
+             ('WEST', 'NORTH'): ['RIGHT'], ('WEST', 'EAST'): ['RIGHT', 'RIGHT'], ('WEST', 'SOUTH'): ['LEFT'],
+             ('WEST', 'WEST'): []}
+    SENSES = defaultdict(str, {'P': 'B', 'W': 'S', 'G': 'G'})
 
-    def __init__(self, world):
-        self.world = world
-        self.n = len(world)
-        self.position = np.array((0, 0))
+    def __init__(self, world, n):
+        self.world = defaultdict(str, world)
+        self.n = n
+        self.kb = defaultdict(set)
+        self.pos = (0, 0)
         self.direction = 'EAST'
         self.arrow = 1
         self.score = 0
         self.have_gold = 0
-        self.wumpus_dead = 0
-        self.dead = 0
+        self.alive = 1
 
     def turn_left(self):
+        self.score -= 1
         self.direction = Agent.LEFT[self.direction]
+        print('Turned left')
 
     def turn_right(self):
+        self.score -= 1
         self.direction = Agent.RIGHT[self.direction]
+        print('Turned right')
 
     def move_forward(self):
-        self.position += np.array(Agent.FORWARD[self.direction])
+        pos = np.array(self.pos)
+        pos += np.array(Agent.FORWARD[self.direction])
 
-        if self.position.any() < 0 or self.position.any() >= 4:
-            self.position -= np.array(Agent.FORWARD[self.direction])
+        if pos.any() < 0 or pos.any() >= 4:
+            pos -= np.array(Agent.FORWARD[self.direction])
             return False
 
         self.score -= 1
-        i, j = self.position
-        self.world[i][j].visited = 1
-        if self.world[i][j].pit or self.world[i][j].wumpus:
-            self.dead = 1
+        self.pos = tuple(pos)
+        self.kb[self.pos].add('V')
+        if self.world[self.pos] in ('P', 'W'):
+            self.alive = 0
             self.score -= 1000
+            print('Died at', self.pos)
             return False
         else:
-            self.world[i][j].ok = 1
-
+            self.kb[self.pos].add('OK')
+        print('Move forward to', self.pos)
         return True
 
     def shoot(self):
         if self.arrow:
             self.score -= 10
             self.arrow = 0
-            i, j = self.position + np.array(Agent.FORWARD[self.direction])
-            if self.world[i][j].wumpus:
-                self.wumpus_dead = 1
-                self.world[i][j].wumpus = 0
-                for a in Agent.FORWARD.values():
-                    i, j = self.position + np.array(a)
-                    if 0 <= i < self.n and 0 <= j < self.n:
-                        self.world[i][j].stench = 0
-                return True
-            return False
-        else:
-            return False
+            pos = np.array(self.pos) + np.array(Agent.FORWARD[self.direction])
+            if pos.any() < 0 or pos.any() >= 4:
+                return
+            pos = tuple(pos)
+            if self.world[pos] == 'W':
+                self.kb[pos].add('Sc')
+                self.world.pop(pos)
+                print('Killed wumpus at', pos)
 
     def grab(self):
-        i, j = self.position
-        if self.world[i][j].gold:
+        if self.world[self.pos] == 'G':
             self.have_gold = 1
             self.score += 1000
-            return True
-        return False
+            self.world.pop(self.pos)
+            print('Grabbed gold at', self.pos)
 
     def sense(self):
-        i, j = self.position
-        return self.world[i][j]
+        if self.world[self.pos] == 'G':
+            self.kb[self.pos].add('G')
+        all_env = set()
+        for adj in self.adjacent():
+            env = self.world[adj]
+            all_env.add(env)
+            if env and env != 'G':
+                self.kb[self.pos].add(Agent.SENSES[env])
+        if 'W' not in all_env:
+            self.kb[self.pos].discard('S')
+        return self.kb[self.pos]
 
-    def adjacent(self):
+    def adjacent(self, pos=None):
+        pos = np.array(self.pos) if pos is None else np.array(pos)
         adj = []
         for a in Agent.FORWARD.values():
-            i, j = self.position + np.array(a)
+            i, j = pos + np.array(a)
             if 0 <= i < self.n and 0 <= j < self.n:
-                adj.append(np.array((i, j)))
+                adj.append((i, j))
         return adj
 
-    def analyse_adj(self):
-        block = self.sense()
-        adj = self.adjacent()
-        var = 0
-        if block.breeze and block.stench:
-            var = -3
-        elif block.breeze:
-            var = -1
-        elif block.stench:
-            var = -2
-        for a in adj:
-            i, j = a
-            if not self.world[i][j].ok:
-                self.world[i][j].ok = var
 
-    def __repr__(self):
-        end = '\033[0m'
-        underline = '\033[4m'
-        world_str = ""
-        for i in range(self.n-1, -1, -1):
-            world_str += "+-----" * 4 + "+\n"
-            world_str += "|"
-            for j in range(self.n):
-                env = str(self.world[i][j]).split("\n")[0]
-                if tuple(self.position) == (i, j):
-                    env = f"{underline}{env}{end}"
-                world_str += f" {env} |"
-            world_str += "\n|"
-            for j in range(self.n):
-                state = str(self.world[i][j]).split("\n")[1]
-                if tuple(self.position) == (i, j):
-                    state = f"{underline}{state}{end}"
-                world_str += f" {state} |"
-            world_str += "\n"
-        world_str += "+-----" * 4 + "+\n"
-        return world_str
+def move_to(agent, pos):
+    diff = tuple(np.array(pos) - np.array(agent.pos))
+    direction = list(Agent.FORWARD.keys())[list(Agent.FORWARD.values()).index(diff)]
+    turns = Agent.TURNS[(agent.direction, direction)]
+    for turn in turns:
+        if turn == 'LEFT':
+            agent.turn_left()
+        elif turn == 'RIGHT':
+            agent.turn_right()
+    agent.move_forward()
 
 
-world = [
-    [Block('NONE'), Block('NONE'), Block('PIT'), Block('NONE')],
-    [Block('NONE'), Block('NONE'), Block('NONE'), Block('NONE')],
-    [Block('WUMPUS'), Block('GOLD'), Block('PIT'), Block('NONE')],
-    [Block('NONE'), Block('NONE'), Block('NONE'), Block('PIT')]
-]
+def analyze_adj(agent: Agent):
+    senses = agent.sense()
+    agent.kb[agent.pos].add('V')
+    agent.kb[agent.pos].add('OK')
+    total_ok = 0
+    adjacents = agent.adjacent()
+    for adj in adjacents:
+        if 'OK' not in agent.kb[adj] and 'P' not in agent.kb[adj] and 'W' not in agent.kb[adj]:
+            if 'B' in senses and 'S' in senses:
+                agent.kb[adj].add('P?')
+                agent.kb[adj].add('W?')
+            elif 'B' in senses:
+                if 'W?' not in agent.kb[adj]:
+                    agent.kb[adj].add('P?')
+                agent.kb[adj].discard('W?')
+            elif 'S' in senses:
+                if 'P?' not in agent.kb[adj]:
+                    agent.kb[adj].add('W?')
+                agent.kb[adj].discard('P?')
+            else:
+                agent.kb[adj].discard('P?')
+                agent.kb[adj].discard('W?')
+        if 'P?' not in agent.kb[adj] and 'W?' not in agent.kb[adj]:
+            agent.kb[adj].add('OK')
+            total_ok += 1
+    if total_ok == len(adjacents)-1:
+        for adj in adjacents:
+            if 'OK' not in agent.kb[adj] and 'P' not in agent.kb[adj] and 'W' not in agent.kb[adj]:
+                if 'B' in senses and 'P?' in agent.kb[adj]:
+                    agent.kb[adj].add('P')
+                    agent.kb[adj].discard('P?')
+                    break
+                elif 'S' in senses and 'W?' in agent.kb[adj]:
+                    agent.kb[adj].add('W')
+                    agent.kb[adj].discard('W?')
+                    break
 
-agent = Agent(WumpusWorld(world))
-print(agent)
 
-agent.move_forward()
-print(agent)
+def next_action(agent: Agent):
+    senses = agent.sense()
+    if 'G' in senses:
+        return agent.grab()
+    ok_visited, ok_not_visited = [], []
+    for adj in agent.adjacent():
+        if 'W' in agent.kb[adj]:
+            return agent.shoot()
+        if 'OK' in agent.kb[adj] and 'V' not in agent.kb[adj]:
+            ok_not_visited.append(adj)
+            continue
+        if 'OK' in agent.kb[adj] and 'V' in agent.kb[adj]:
+            ok_visited.append(adj)
+    if ok_not_visited:
+        return move_to(agent, ok_not_visited[0])
+    if ok_visited:
+        return move_to(agent, ok_visited[0])
 
-agent.move_forward()
-print(agent)
+
+def traverse(agent):
+    path = []
+    while agent.alive and not agent.have_gold:
+        print(agent.pos, agent.kb[agent.pos], agent.world[agent.pos], agent.direction, agent.score)
+        analyze_adj(agent)
+        next_action(agent)
+        if agent.pos in path:
+            # delete path until pos
+            path = path[:path.index(agent.pos)]
+        path.append(agent.pos)
+    if not agent.alive:
+        return
+    if agent.have_gold:
+        path.pop()
+        while agent.pos != (0, 0):
+            move_to(agent, path.pop())
+            print(agent.pos, agent.kb[agent.pos], agent.world[agent.pos], agent.direction, agent.score)
+
+
+def main():
+    world = {
+        (2, 0): 'P',
+        (0, 2): 'W',
+        (1, 2): 'G',
+        (2, 2): 'P',
+        (3, 3): 'P',
+    }
+
+    agent = Agent(world, 4)
+    traverse(agent)
+
+
+if __name__ == '__main__':
+    main()
