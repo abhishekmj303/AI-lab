@@ -18,7 +18,7 @@ class Agent:
         self.world = defaultdict(str, world)
         self.n = n
         self.kb = defaultdict(set)
-        self.pos = (0, 0)
+        self.pos = (1, 1)
         self.direction = 'EAST'
         self.arrow = 1
         self.score = 0
@@ -39,8 +39,9 @@ class Agent:
         pos = np.array(self.pos)
         pos += np.array(Agent.FORWARD[self.direction])
 
-        if pos.any() < 0 or pos.any() >= 4:
+        if pos.any() < 1 or pos.any() > 4:
             pos -= np.array(Agent.FORWARD[self.direction])
+            print('Hit wall at', self.pos)
             return False
 
         self.score -= 1
@@ -49,7 +50,8 @@ class Agent:
         if self.world[self.pos] in ('P', 'W'):
             self.alive = 0
             self.score -= 1000
-            print('Died at', self.pos)
+            because = 'pit' if self.world[self.pos] == 'P' else 'wumpus'
+            print('Died at', self.pos, 'because of', because)
             return False
         else:
             self.kb[self.pos].add('OK')
@@ -61,7 +63,7 @@ class Agent:
             self.score -= 10
             self.arrow = 0
             pos = np.array(self.pos) + np.array(Agent.FORWARD[self.direction])
-            if pos.any() < 0 or pos.any() >= 4:
+            if pos.any() < 1 or pos.any() > 4:
                 return
             pos = tuple(pos)
             if self.world[pos] == 'W':
@@ -75,6 +77,8 @@ class Agent:
             self.score += 1000
             self.world.pop(self.pos)
             print('Grabbed gold at', self.pos)
+        else:
+            print('No gold at', self.pos)
 
     def sense(self):
         if self.world[self.pos] == 'G':
@@ -94,7 +98,7 @@ class Agent:
         adj = []
         for a in Agent.FORWARD.values():
             i, j = pos + np.array(a)
-            if 0 <= i < self.n and 0 <= j < self.n:
+            if 1 <= i <= self.n and 1 <= j <= self.n:
                 adj.append((i, j))
         return adj
 
@@ -109,6 +113,30 @@ def move_to(agent, pos):
         elif turn == 'RIGHT':
             agent.turn_right()
     agent.move_forward()
+
+
+def ai_next_action(agent: Agent):
+    senses = agent.sense()
+    if 'G' in senses:
+        agent.grab()
+        return True
+    ok_visited, ok_not_visited = [], []
+    for adj in agent.adjacent():
+        if 'W' in agent.kb[adj]:
+            agent.shoot()
+            return True
+        if 'OK' in agent.kb[adj] and 'V' not in agent.kb[adj]:
+            ok_not_visited.append(adj)
+            continue
+        if 'OK' in agent.kb[adj] and 'V' in agent.kb[adj]:
+            ok_visited.append(adj)
+    if ok_not_visited:
+        move_to(agent, ok_not_visited[0])
+        return True
+    if ok_visited:
+        move_to(agent, ok_visited[0])
+        return True
+    return False
 
 
 def analyze_adj(agent: Agent):
@@ -149,55 +177,74 @@ def analyze_adj(agent: Agent):
                     break
 
 
-def next_action(agent: Agent):
-    senses = agent.sense()
-    if 'G' in senses:
-        return agent.grab()
-    ok_visited, ok_not_visited = [], []
-    for adj in agent.adjacent():
-        if 'W' in agent.kb[adj]:
-            return agent.shoot()
-        if 'OK' in agent.kb[adj] and 'V' not in agent.kb[adj]:
-            ok_not_visited.append(adj)
-            continue
-        if 'OK' in agent.kb[adj] and 'V' in agent.kb[adj]:
-            ok_visited.append(adj)
-    if ok_not_visited:
-        return move_to(agent, ok_not_visited[0])
-    if ok_visited:
-        return move_to(agent, ok_visited[0])
+def user_traverse(agent: Agent):
+    print('1. Move forward')
+    print('2. Turn left')
+    print('3. Turn right')
+    print('4. Shoot')
+    print('5. Grab')
+    print('6. Exit')
+    action = int(input('Enter action: '))
+    while agent.alive:
+        if agent.pos == (1, 1) and agent.have_gold:
+            print('You won!')
+            break
+        if action == 1:
+            agent.move_forward()
+            analyze_adj(agent)
+        elif action == 2:
+            agent.turn_left()
+        elif action == 3:
+            agent.turn_right()
+        elif action == 4:
+            agent.shoot()
+        elif action == 5:
+            agent.grab()
+        elif action == 6:
+            break
 
 
-def traverse(agent):
+def ai_traverse(agent):
     path = []
-    while agent.alive and not agent.have_gold:
+    max_iter = 100
+    while agent.alive and not agent.have_gold and max_iter > 0:
         print(agent.pos, agent.kb[agent.pos], agent.world[agent.pos], agent.direction, agent.score)
         analyze_adj(agent)
-        next_action(agent)
+        if not ai_next_action(agent):
+            print('No action possible to take by AI')
+            user_traverse(agent)
+            return
         if agent.pos in path:
             # delete path until pos
             path = path[:path.index(agent.pos)]
         path.append(agent.pos)
+        max_iter -= 1
+        print()
     if not agent.alive:
         return
     if agent.have_gold:
         path.pop()
-        while agent.pos != (0, 0):
-            move_to(agent, path.pop())
+        while agent.pos != (1, 1):
             print(agent.pos, agent.kb[agent.pos], agent.world[agent.pos], agent.direction, agent.score)
+            move_to(agent, path.pop())
+            print()
+        print('AI won!')
+    if max_iter == 0:
+        print('Max iteration reached')
+        user_traverse(agent)
 
 
 def main():
     world = {
-        (2, 0): 'P',
-        (0, 2): 'W',
-        (1, 2): 'G',
-        (2, 2): 'P',
+        (3, 1): 'P',
+        (1, 3): 'W',
+        (2, 3): 'G',
         (3, 3): 'P',
+        (4, 4): 'P',
     }
 
     agent = Agent(world, 4)
-    traverse(agent)
+    ai_traverse(agent)
 
 
 if __name__ == '__main__':
