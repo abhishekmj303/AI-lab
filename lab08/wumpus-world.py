@@ -59,6 +59,7 @@ class Agent:
         return True
 
     def shoot(self):
+        print('Shoot arrow')
         if self.arrow:
             self.score -= 10
             self.arrow = 0
@@ -70,8 +71,13 @@ class Agent:
                 self.kb[pos].add('Sc')
                 self.world.pop(pos)
                 print('Killed wumpus at', pos)
+            else:
+                print('Missed at', pos)
+        else:
+            print('No arrow')
 
     def grab(self):
+        print('Grab gold')
         if self.world[self.pos] == 'G':
             self.have_gold = 1
             self.score += 1000
@@ -102,8 +108,12 @@ class Agent:
                 adj.append((i, j))
         return adj
 
+    def __repr__(self):
+        return f'Agent({self.pos}, {self.direction})\nScore: {self.score}'
+
 
 def move_to(agent, pos):
+    print('Go to', pos)
     diff = tuple(np.array(pos) - np.array(agent.pos))
     direction = list(Agent.FORWARD.keys())[list(Agent.FORWARD.values()).index(diff)]
     turns = Agent.TURNS[(agent.direction, direction)]
@@ -117,6 +127,8 @@ def move_to(agent, pos):
 
 def ai_next_action(agent: Agent):
     senses = agent.sense()
+    print('Current:', {agent.pos: agent.kb[agent.pos]})
+    print('Action:', end=' ')
     if 'G' in senses:
         agent.grab()
         return True
@@ -145,6 +157,7 @@ def analyze_adj(agent: Agent):
     agent.kb[agent.pos].add('OK')
     total_ok = 0
     adjacents = agent.adjacent()
+    print('Adjacents:', {adj: agent.kb[adj] for adj in adjacents})
     for adj in adjacents:
         if 'OK' not in agent.kb[adj] and 'P' not in agent.kb[adj] and 'W' not in agent.kb[adj]:
             if 'B' in senses and 'S' in senses:
@@ -208,7 +221,7 @@ def ai_traverse(agent):
     path = []
     max_iter = 100
     while agent.alive and not agent.have_gold and max_iter > 0:
-        print(agent.pos, agent.kb[agent.pos], agent.world[agent.pos], agent.direction, agent.score)
+        print(agent)
         analyze_adj(agent)
         if not ai_next_action(agent):
             print('No action possible to take by AI')
@@ -225,9 +238,11 @@ def ai_traverse(agent):
     if agent.have_gold:
         path.pop()
         while agent.pos != (1, 1):
-            print(agent.pos, agent.kb[agent.pos], agent.world[agent.pos], agent.direction, agent.score)
+            print(agent)
+            print('Action:', end=' ')
             move_to(agent, path.pop())
             print()
+        print(agent)
         print('AI won!')
     if max_iter == 0:
         print('Max iteration reached')
