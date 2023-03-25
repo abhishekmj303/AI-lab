@@ -90,7 +90,7 @@ def astar(initial: tuple, final: tuple, heuristic):
                         parent[neighbor] = current
         max_iter += 1
     if max_iter >= 1000:
-        print('Max iterations reached')
+        raise StopIteration('maximum iteration exceeded')
 
 
 def main(hueristic, text):
@@ -107,9 +107,9 @@ def main(hueristic, text):
     )
 
     print(f'Heuristic used: {text}')
-    parent_path, moves = astar(initial, final, hueristic)
+    parent_dict, moves = astar(initial, final, hueristic)
     print('Steps: ')
-    print_path(parent_path, final)
+    print_path(parent_dict, final)
     print('No. of moves: ', moves)
 
 
